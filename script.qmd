@@ -1,0 +1,51 @@
+---
+title: "ARIMA Modeling and Forecasting of the French Dairy Production Index"
+author: "Varnel TIENTCHEU & Rivalien MAGUETSWET"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    code-fold: show
+    code-tools: true
+    theme: cosmo
+    fig-width: 10
+    fig-height: 6
+    embed-resources: true
+  pdf:
+    toc: true
+    number-sections: true
+    geometry: margin=1in
+---
+
+This project focuses on the econometric modeling and forecasting of a French economic time series. Using the Box-Jenkins methodology, we aim to identify, estimate, and validate an optimal model to predict future values of industrial output.
+
+## Part I: The Data
+
+### a) Data description
+
+**Sector and Definition**
+
+The series selected for this study is the **Industrial Production Index (IPI)** for the **Manufacture of Dairy Products** (NAF rev. 2, group 10.5) in France. This index, identified by Insee ID **010767631**, tracks the monthly volume of output for the dairy transformation industry.
+
+**Time Span and Observations**
+
+-   **Period:** The dataset covers the period from **January 1990 to February 2026**.
+
+-   **Frequency:** Monthly.
+
+-   **Sample Size:** With **434 observations**, the series significantly exceeds the minimum requirement of 100 observations, ensuring sufficient degrees of freedom for robust $ARIMA$ estimation.
+
+**Data Processing and Adjustments**
+
+The series is obtained from the Insee time series databank and has undergone specific pre-processing:
+
+-   **CVS-CJO (SA-WDA):** The data is corrected for **seasonal variations** and **working day effects**. This is critical as it removes deterministic seasonal patterns (like the spring "milk flush") and calendar-related noise, allowing us to focus on the underlying stochastic process.
+
+-   **Logarithmic Transformation:** We apply a natural log transformation ($ln(X_t)$) to the raw data. This is justified by the need to:
+
+    1.  **Stabilize Variance:** as the magnitude of fluctuations in industrial production often grows proportionally with the level of the index.
+
+    2.  **Linearize the Model:** Prepare the data for linear $ARIMA$ modeling where additive relationships are assumed.
+
+### b) Stationnarity
