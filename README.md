@@ -31,14 +31,5 @@ The analysis is divided into three main parts[cite: 11]:
 * Graphical representation of the prediction region[cite: 29].
 * Analysis of predictive improvement using auxiliary stationary time series $Y_t$[cite: 30, 31].
 
-## Submission Requirements
-* **Deadline:** Before Sunday, May 10 at midnight[cite: 4].
-* **Deliverables:** A zip file named `fname1 fname2` containing:
-    * The PDF report (maximum 6 pages, in English)[cite: 6, 9].
-    * The R script used for the analysis[cite: 7, 8].
-    * The time series dataset in `.csv` format[cite: 7].
-* **Grading Criteria:** Rigor, exactitude of econometric tools, conciseness, and clarity of results.
 
-## Tools
-* [cite_start]**Language:** R[cite: 8].
 * **Environment:** GitHub for collaborative development.
