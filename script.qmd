@@ -34,9 +34,7 @@ The series selected for this study is the **Industrial Production Index (IPI)** 
 
 -   **Frequency:** Monthly.
 
--   **Sample Size:** With **434 observations**, the series significantly exceeds the minimum requirement of 100 observations, ensuring sufficient degrees of freedom for robust $ARIMA$ estimation.
-
-**Data Processing and Adjustments**
+-   **Sample Size:** With 434 observations.
 
 The series is obtained from the Insee time series databank and has undergone specific pre-processing:
 
@@ -48,4 +46,202 @@ The series is obtained from the Insee time series databank and has undergone spe
 
     2.  **Linearize the Model:** Prepare the data for linear $ARIMA$ modeling where additive relationships are assumed.
 
+    ```{r echo=FALSE}
+    library(readr)
+    # Importation de la base
+    base <- read_delim("valeurs_mensuelles.csv", delim = ";", skip = 3)
+
+    colnames(base) <- c("t", "Xt", "status")
+
+    # Conversion en Date (Format YYYY-MM)
+    base$t <- as.Date(paste0(base$t, "-01"), format="%Y-%m-%d")
+    base$Xt <- as.numeric(base$Xt)
+    base$status <- as.character(base$status)
+
+    # On réordonne la série
+    base <- base[order(base$t), ]
+    str(base)
+
+    ```
+
 ### b) Stationnarity
+
+```{r, echo=FALSE}
+#install.packages("forecast")
+library(forecast)
+
+# Passage au logarithme
+xt <- ts(base$Xt, start = c(1990, 1), frequency = 12)
+lxt <- log(xt)
+
+# Extraction du mouvement de fond 
+
+trend <- ma(lxt, order = 12, centre = TRUE)
+
+par(mfrow=c(1,2))
+# Visualisation propre
+plot(lxt, 
+     main = "Evolution du Logarithme de l'IPI (Produits Laitiers)",
+     ylab = "Log-Indice", 
+     xlab = "Temps",
+     col = "gray",
+     lwd = 2)
+
+lines(trend, col = "firebrick", lwd = 1) 
+
+legend("bottomright", 
+       legend = c("Log(Xt)", "Tendance"),
+       col = c("gray", "firebrick"), 
+       lty = 1, 
+       lwd = c(1, 1))
+
+# Visualisation de la série tedantanciée
+plot(lxt-trend, 
+     main = "Série détendanciée",
+     ylab = "Xt-Trend", 
+     xlab = "Temps",
+     col = "blue",
+     lwd = 1)
+
+```
+
+Visual inspection of the series reveals a sustained upward trend over the 1990-2026 period, suggesting the presence of a stochastic trend. Furthermore, the fluctuations in the detrended series (shown on the right) exhibit time-varying volatility, indicating that the variance is not constant over time. These observations strongly suggest that the process is non-stationary. To rigorously confirm this assessment, we perform a comprehensive suite of statistical tests, including the Augmented Dickey-Fuller (ADF) and Phillips-Perron (PP) unit root tests, as well as the KPSS stationarity test.
+
+#### ADF test
+
+To rigorously assess the stationarity of the $ln(X_t)$ series, we follow a sequential testing procedure. We initially consider the most general specification, which includes both a linear deterministic trend and an intercept (the "trend" model):
+
+\$\$\\Delta y_t = \\alpha + \\beta t + \\gamma y\_{t-1} + \\sum\_{i=1}\^p \\delta_i \\Delta y\_{t-i} + \\varepsilon_t\$\$
+
+```{r, echo = FALSE}
+#install.packages("tseries")
+library(urca)
+library(tseries)
+
+#--- 1. TEST AUGMENTED DICKEY-FULLER (ADF) ---
+adf_trend <- ur.df(lxt, type = "trend", lags = 12, selectlags = "BIC")
+summary(adf_trend)
+
+```
+
+Where $y_t = ln(X_t)$. The results for this specification show that the test statistic for the unit root ($\tau_3 = -2.4846$) is greater than the 5% critical value (-3.42), leading to the non-rejection of the null hypothesis $H_0: \gamma = 0$. Furthermore, the joint test for a unit root and the absence of a deterministic trend ($\phi_3 = 3.5602$) is below the critical threshold (6.30).
+
+This suggests that the deterministic trend $\beta t$ is not statistically significant. Consequently, to increase the power of the unit root test, we move to a more parsimonious specification by removing the trend component, known as the "drift" model:
+
+\$\$\\Delta y_t = \\alpha + \\gamma y\_{t-1} + \\sum\_{i=1}\^p \\delta_i \\Delta y\_{t-i} + \\varepsilon_t\$\$
+
+```{r, echo=FALSE}
+# Modèle avec constante uniquement (Type = "drift")
+adf_drift <- ur.df(lxt, type = "drift", lags = 12, selectlags = "BIC")
+summary(adf_drift)
+
+
+```
+
+The test statistic for the unit root is $\tau_2 = -2.1667$, which remains above the 5% critical value of -2.87. Moreover, the joint test for the unit root and the intercept ($\phi_1 = 3.0132$) is below its critical threshold (4.61), indicating that the intercept $\alpha$ is not statistically significant. This leads us to the final and most parsimonious specification, the 'none' model, to confirm the presence of a pure unit root : \$\$\\Delta y_t = \\gamma y\_{t-1} + \\sum\_{i=1}\^p \\delta_i \\Delta y\_{t-i} + \\varepsilon_t\$\$
+
+```{r, echo=FALSE}
+# Modèle sans constante ni tendance (Type = "none")
+adf_none <- ur.df(lxt, type = "none", lags = 12, selectlags = "BIC")
+summary(adf_none)
+
+```
+
+Across all three specifications (trend, drift, and none), the null hypothesis of a unit root could not be rejected at the 5% level. Furthermore, the joint tests indicated that deterministic components were not statistically significant under the unit root hypothesis. We therefore conclude that the French Dairy Production Index is a **non-stationary process of order 1**, or $I(1)$.
+
+To satisfy the stationarity requirement for $ARMA$ modeling, we apply a first-order differentiation to the logarithmic series: \$\$W_t = \\nabla ln(X_t) = ln(X_t) - ln(X\_{t-1})\$\$
+
+#### Phillips-Perron test
+
+```{r? echo=FALSE}
+pp_test <- ur.pp(lxt, type = "Z-tau", model = "constant", lags = "short")
+summary(pp_test)
+```
+
+#### KPSS test
+
+```{r, echo=FALSE}
+kpss_test <- ur.kpss(lxt, type="mu", lags="short", use.lag = 12)
+summary(kpss_test)
+
+```
+
+To rigorously justify the transformation of the series, we performed a comprehensive suite of unit root and stationarity tests. The **Augmented Dickey-Fuller (ADF)** and **Phillips-Perron (PP)** tests (constant specification) both fail to reject the null hypothesis of a unit root at the 5% level (with statistics of $-2.16$ and $-2.70$ respectively). Furthermore, the **KPSS test** strongly rejects the null hypothesis of stationarity, with a test statistic of $2.6916$ far exceeding the 5% critical value of $0.463$. The convergence of these results definitively characterizes the $ln(X_t)$ series as non-stationary, specifically an $I(1)$ process. Consequently, we apply a first-order differentiation to stabilize the mean and achieve stationarity.
+
+##### Table 1: Unit Root and Stationarity Tests Results for $ln(X_t)$
+
+|  |  |  |  |  |  |
+|----|----|----|----|----|----|
+| **Test** | **Specification** | **Null Hypothesis (H0​)** | **Statistic** | **Critical Value (5%)** | **Result** |
+| **ADF** | Trend, Intercept | Unit Root | $\tau_3 = -2.48$ | $-3.42$ | Fail to reject $H_0$ |
+|  |  | Joint Test ($\gamma=0, \beta=0$) | $\phi_3 = 3.56$ | $6.30$ | Fail to reject $H_0$ |
+| **ADF** | Intercept | Unit Root | $\tau_2 = -2.16$ | $-2.87$ | Fail to reject $H_0$ |
+|  |  | Joint Test ($\gamma=0, \alpha=0$) | $\phi_1 = 3.01$ | $4.61$ | Fail to reject $H_0$ |
+| **ADF** | None | Unit Root | $\tau_1 = 1.12$ | $-1.95$ | Fail to reject $H_0$ |
+| **PP** | Intercept | Unit Root | $Z\text{-}\tau = -2.71$ | $-2.87$ | Fail to reject $H_0$ |
+| **KPSS** | Trend | Stationarity | $LM = 2.6916$ | $0.463$ | **Reject** $H_0$ |
+
+### c) Transform and visualize the new serie
+
+```{r, echo=FALSE}
+# Création de la série différenciée (Le "W_t" de ton cours)
+dlxt <- diff(lxt)
+
+# Graphique comparatif (Question 3)
+par(mfrow = c(1, 2)) # Pour afficher les deux l'un au-dessus de l'autre
+plot(lxt, main = "Before", col = "blue", ylab = "Log-Index")
+plot(dlxt, main = "After: First Difference", col = "gray", ylab = "Growth Rate")
+abline(h = 0, lty = 2) # Ajoute une ligne à zéro pour voir la stationnarité en moyenne
+
+lines(ma(dlxt, order = 12, centre = TRUE), col = "firebrick", lwd = 1) 
+
+legend("bottomright", 
+       legend = c("Log(Xt)", "Tendance"),
+       col = c("gray", "firebrick"), 
+       lty = 1, 
+       lwd = c(1, 1))
+
+```
+
+The visual inspection of the first-differenced series $W_t = \nabla \ln(X_t)$ confirms the effectiveness of the transformation. The series now exhibits a clear mean-reverting behavior, oscillating stably around a zero mean with no discernible trend. Furthermore, the variance appears to be relatively constant over time, despite minor volatility clusters. These observations provide strong visual evidence that the differentiated series is stationary, fulfilling the necessary condition for $ARMA$ identification.
+
+##  Part II : ARMA models
+
+### a) Choix du modèle ARMA et estimation des paramètres
+
+```{r, echo=FALSE}
+# Visualisation des corrélogrammes
+par(mfrow = c(1, 2))
+acf(dlxt, main = "ACF", lag.max = 72)
+pacf(dlxt, main = "PACF", lag.max = 72)
+```
+
+The examination of the ACF and PACF plots for the first-differenced series $\nabla ln(X_t)$ reveals significant and persistent spikes at seasonal lags ($k=12, 24, 36$). These patterns indicate that the simple non-seasonal differentiation $(1-L)$ was insufficient to fully characterize the series' dynamics, as a clear **seasonal component** remains. This observation justifies the inclusion of seasonal autoregressive ($SAR$) and/or moving average ($SMA$) terms in the model to account for these annual dependencies and ensure that the final residuals satisfy the white noise property.
+
+By setting aside the seasonal spikes, the **ACF** plot shows significant correlations that effectively cut off after lag 2. Similarly, the **PACF** exhibits a truncation after lag 3. Consequently, the search space for the optimal model is defined within the $SARIMA(p,1,q)(P,D,Q)_{12}$ family, with the following constraints:
+
+-   **Regular orders:** $p \leq 2$ and $q \leq 3$.
+
+-   **Seasonal orders:** $P \leq 2$ and $Q \leq 2$.
+
+-   **Seasonal integration:** $D \leq 1$.
+
+We are now going to test all these specifications, and select the model that has the lower information criteria AIC/BIC.
+
+```{r, echo =FALSE}
+# Recherche exhaustive (Grid Search interne)
+fit_best <- auto.arima(dlxt, 
+                       d = 1,           # Fixé car on a déjà fait le test ADF
+                       max.p = 2, 
+                       max.q = 3, 
+                       max.P = 2, 
+                       max.Q = 2, 
+                       max.D = 1, 
+                       stepwise = FALSE,
+                       approximation = FALSE,
+                       trace = TRUE,  
+                       ic = "bic")
+
+# Résumé du grand gagnant
+summary(fit_best)
+```
