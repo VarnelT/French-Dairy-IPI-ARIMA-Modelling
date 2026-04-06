@@ -153,10 +153,7 @@ To satisfy the stationarity requirement for $ARMA$ modeling, we apply a first-or
 
 #### Phillips-Perron test
 
-```{r? echo=FALSE}
-pp_test <- ur.pp(lxt, type = "Z-tau", model = "constant", lags = "short")
-summary(pp_test)
-```
+`{r? echo=FALSE} pp_test <- ur.pp(lxt, type = "Z-tau", model = "constant", lags = "short") summary(pp_test)`
 
 #### KPSS test
 
@@ -171,7 +168,7 @@ To rigorously justify the transformation of the series, we performed a comprehen
 ##### Table 1: Unit Root and Stationarity Tests Results for $ln(X_t)$
 
 |  |  |  |  |  |  |
-|----|----|----|----|----|----|
+|------------|------------|------------|------------|------------|------------|
 | **Test** | **Specification** | **Null Hypothesis (H0​)** | **Statistic** | **Critical Value (5%)** | **Result** |
 | **ADF** | Trend, Intercept | Unit Root | $\tau_3 = -2.48$ | $-3.42$ | Fail to reject $H_0$ |
 |  |  | Joint Test ($\gamma=0, \beta=0$) | $\phi_3 = 3.56$ | $6.30$ | Fail to reject $H_0$ |
@@ -205,7 +202,7 @@ legend("bottomright",
 
 The visual inspection of the first-differenced series $W_t = \nabla \ln(X_t)$ confirms the effectiveness of the transformation. The series now exhibits a clear mean-reverting behavior, oscillating stably around a zero mean with no discernible trend. Furthermore, the variance appears to be relatively constant over time, despite minor volatility clusters. These observations provide strong visual evidence that the differentiated series is stationary, fulfilling the necessary condition for $ARMA$ identification.
 
-##  Part II : ARMA models
+## Part II : ARMA models
 
 ### a) Choix du modèle ARMA et estimation des paramètres
 
@@ -228,9 +225,11 @@ By setting aside the seasonal spikes, the **ACF** plot shows significant correla
 
 We are now going to test all these specifications, and select the model that has the lower information criteria AIC/BIC.
 
+#### Estimation
+
 ```{r, echo =FALSE}
 # Recherche exhaustive (Grid Search interne)
-fit_best <- auto.arima(dlxt, 
+fit_best <- auto.arima(lxt, 
                        d = 1,           # Fixé car on a déjà fait le test ADF
                        max.p = 2, 
                        max.q = 3, 
@@ -239,9 +238,51 @@ fit_best <- auto.arima(dlxt,
                        max.D = 1, 
                        stepwise = FALSE,
                        approximation = FALSE,
-                       trace = TRUE,  
-                       ic = "bic")
+                       ic = "aic")
 
 # Résumé du grand gagnant
 summary(fit_best)
+
 ```
+
+The grid search performed on the log-transformed series $ln(X_t)$ (with $d=1$) identifies the $SARIMA(0,1,2)(2,0,1)_{12}$ with drift as the optimal model based on the **BIC (-2450.45)**. We verify the significance of the estimated parameters using a $t$-test (at the 5% level, $|t| > 1.96$):
+
+|  |  |  |  |  |
+|---------------|---------------|---------------|---------------|---------------|
+| **Parameter** | **Estimate** | **Std. Error** | **t-statistic** | **Status** |
+| **MA(1)** ($\theta_1$) | -0.4536 | 0.0476 | **-9.53** | Significant |
+| **MA(2)** ($\theta_2$) | -0.1360 | 0.0479 | **-2.84** | Significant |
+| **SAR(1)** ($\Phi_1$) | 0.5110 | 0.1051 | **4.86** | Significant |
+| **SAR(2)** ($\Phi_2$) | -0.2390 | 0.0520 | **-4.60** | Significant |
+| **SMA(1)** ($\Theta_1$) | -0.5621 | 0.1010 | **-5.56** | Significant |
+| **Drift** ($\delta$) | 0.0004 | 0.0002 | **2.00** |  |
+
+#### Residual's checking (validity)
+
+```{r}
+checkresiduals(fit_best)
+```
+
+To confirm the model's adequacy, we performed a **Ljung-Box diagnostic test** on the residuals. The null hypothesis of independence cannot be rejected, as the p-value ($0.6373$) is significantly higher than the $5\%$ threshold. This result proves that the residuals behave as white noise, indicating that our $SARIMA(0,1,2)(2,0,1)_{12}$ specification effectively captures both the short-term dynamics and the seasonal patterns of the dairy production index."
+
+#### Model equation
+
+The optimal model identified for the log-transformed index $y_t = \ln(X_t)$ is a $SARIMA(0,1,2)(2,0,1)_{12}$ with drift. Using the backshift operator $L$, the equation for the first-differenced series $W_t = (1-L)y_t$ is specified as:
+
+\$\$(1 - \\Phi_1 L\^{12} - \\Phi_2 L\^{24}) (W_t - \\delta) = (1 + \\theta_1 L + \\theta_2 L\^2)(1 + \\Theta_1 L\^{12}) \\epsilon_t\$\$
+
+Where $\epsilon_t \sim WN(0, \sigma^2)$ represents the white noise process. Substituting the maximum likelihood estimates from our results:
+
+-   **Drift (**$\delta$): $0.0004$
+
+-   **Non-seasonal MA (**$\theta_1, \theta_2$): $-0.4536, -0.1360$
+
+-   **Seasonal AR (**$\Phi_1, \Phi_2$): $0.5110, -0.2390$
+
+-   **Seasonal MA (**$\Theta_1$): $-0.5621$
+
+-   **Estimated Variance (**$\hat{\sigma}^2$): $0.000186$
+
+The final estimated equation is:
+
+\$\$(1 - 0.5110 L\^{12} + 0.2390 L\^{24}) (\\nabla \\ln(X_t) - 0.0004) = (1 - 0.4536 L - 0.1360 L\^2)(1 - 0.5621 L\^{12}) \\epsilon_t\$\$
