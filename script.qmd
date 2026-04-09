@@ -219,13 +219,13 @@ pacf(dlxt, main = "PACF", lag.max = 84)
 
 The examination of the ACF and PACF plots for the first-differenced series $\nabla ln(X_t)$ reveals significant and persistent spikes at seasonal lags ($k=12, 24, 36$). These patterns indicate that the simple non-seasonal differentiation $(1-L)$ was insufficient to fully characterize the series' dynamics, as a clear **seasonal component** remains. This observation justifies the inclusion of seasonal autoregressive ($SAR$) and/or moving average ($SMA$) terms in the model to account for these annual dependencies and ensure that the final residuals satisfy the white noise property.
 
-By setting aside the seasonal spikes, the **ACF** plot shows significant correlations that effectively cut off after lag 2. Similarly, the **PACF** exhibits a truncation after lag 3. On the other hand, we notice for the seasonal component that after lag 3 (on PACF), nothing is significant; whereas in the acf we observe a decay. That suggests the seasonal part behaves like an ARMA(P,0,Q).
+By setting aside the seasonal spikes, the **ACF** plot shows significant correlations that effectively cut off after lag 2. Similarly, the **PACF** exhibits a truncation after lag 3. On the other hand, we notice for the seasonal component that after lag 3 (on PACF), nothing is significant; whereas in the acf we observe a decay. That suggests the seasonal part behaves like an ARMA(P,D,Q).
 
 Consequently, the search space for the optimal model is defined within the $SARIMA(p,1,q)(P,D,Q)_{12}$ family, with the following constraints:
 
 -   **Regular orders:** $p \leq 2$ and $q \leq 3$.
 
--   **Seasonal orders:** $P \leq 2$ and $Q \leq 2$.
+-   **Seasonal orders:** $P \leq 2$ and $Q \leq 3$.
 
 -   **Seasonal integration:** $D \leq 1$.
 
@@ -235,23 +235,53 @@ We are now going to test all these specifications, and select the model that has
 
 ```{r, echo =FALSE}
 # Recherche exhaustive (Grid Search interne)
-fit_best <- auto.arima(lxt, 
-                       d = 1,           # Fixé car on a déjà fait le test ADF
-                       max.p = 2, 
-                       max.q = 3, 
-                       max.P = 2, 
-                       max.Q = 2, 
-                       max.D = 1, 
-                       stepwise = FALSE,
-                       approximation = FALSE,
-                       ic = "aic")
+# Définition des plages de paramètres
+p_range <- 0:2
+q_range <- 0:3
+P_range <- 0:2
+Q_range <- 0:2
+D_range <- 0:1
+d <- 1  
+# Initialisation du tableau de résultats
+model_comparison <- data.frame()
 
-# Résumé du grand gagnant
-summary(fit_best)
+# 2. Boucle 
+for (p in p_range) {
+  for (q in q_range) {
+    for (P in P_range) {
+      for (Q in Q_range) {
+        for (D in D_range) {
+          
+          # Estimation du modèle 
+          fit <- try(Arima(lxt, 
+                           order = c(p, d, q), 
+                           seasonal = list(order = c(P, D, Q), period = 12),
+                           method = "CSS-ML"), # Méthode plus rapide pour le grid search
+                     silent = TRUE)
+          
+          # Si le modèle a convergé, on stocke les critères
+          if (!inherits(fit, "try-error")) {
+            row <- data.frame(p = p, d = d, q = q, P = P, D = D, Q = Q,
+                              AIC = fit$aic, 
+                              BIC = fit$bic,
+                              LogLik = fit$loglik)
+            model_comparison <- rbind(model_comparison, row)
+          }
+        }
+      }
+    }
+  }
+}
+
+# 3. Tri et affichage des meilleurs modèles
+model_comparison_sorted <- model_comparison[order(model_comparison$BIC), ]
+
+# Affichage du Top 10
+head(model_comparison_sorted, 10)
 
 ```
 
-The grid search performed on the log-transformed series $ln(X_t)$ (with $d=1$) identifies the $SARIMA(0,1,2)(2,0,1)_{12}$ with drift as the optimal model based on the **BIC (-2450.45)**. We verify the significance of the estimated parameters using a $t$-test (at the 5% level, $|t| > 1.96$):
+The grid search performed on the log-transformed series $ln(X_t)$ (with $d=1$) identifies the $SARIMA(0,1,2)(2,0,2)_{12}$ with drift as the optimal model based on the **BIC (-2450.45)**. We verify the significance of the estimated parameters using a $t$-test (at the 5% level, $|t| > 1.96$):
 
 |  |  |  |  |  |
 |---------------|---------------|---------------|---------------|---------------|
