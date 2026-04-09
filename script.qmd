@@ -153,7 +153,11 @@ To satisfy the stationarity requirement for $ARMA$ modeling, we apply a first-or
 
 #### Phillips-Perron test
 
-`{r? echo=FALSE} pp_test <- ur.pp(lxt, type = "Z-tau", model = "constant", lags = "short") summary(pp_test)`
+```{r echo=FALSE}
+pp_test <- ur.pp(lxt, type = "Z-tau", model = "constant", lags = "short") 
+summary(pp_test)
+
+```
 
 #### KPSS test
 
