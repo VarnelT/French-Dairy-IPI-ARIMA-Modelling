@@ -213,13 +213,15 @@ The visual inspection of the first-differenced series $W_t = \nabla \ln(X_t)$ co
 ```{r, echo=FALSE}
 # Visualisation des corrélogrammes
 par(mfrow = c(1, 2))
-acf(dlxt, main = "ACF", lag.max = 72)
-pacf(dlxt, main = "PACF", lag.max = 72)
+acf(dlxt, main = "ACF", lag.max = 84)
+pacf(dlxt, main = "PACF", lag.max = 84)
 ```
 
 The examination of the ACF and PACF plots for the first-differenced series $\nabla ln(X_t)$ reveals significant and persistent spikes at seasonal lags ($k=12, 24, 36$). These patterns indicate that the simple non-seasonal differentiation $(1-L)$ was insufficient to fully characterize the series' dynamics, as a clear **seasonal component** remains. This observation justifies the inclusion of seasonal autoregressive ($SAR$) and/or moving average ($SMA$) terms in the model to account for these annual dependencies and ensure that the final residuals satisfy the white noise property.
 
-By setting aside the seasonal spikes, the **ACF** plot shows significant correlations that effectively cut off after lag 2. Similarly, the **PACF** exhibits a truncation after lag 3. Consequently, the search space for the optimal model is defined within the $SARIMA(p,1,q)(P,D,Q)_{12}$ family, with the following constraints:
+By setting aside the seasonal spikes, the **ACF** plot shows significant correlations that effectively cut off after lag 2. Similarly, the **PACF** exhibits a truncation after lag 3. On the other hand, we notice for the seasonal component that after lag 3 (on PACF), nothing is significant; whereas in the acf we observe a decay. That suggests the seasonal part behaves like an ARMA(P,0,Q).
+
+Consequently, the search space for the optimal model is defined within the $SARIMA(p,1,q)(P,D,Q)_{12}$ family, with the following constraints:
 
 -   **Regular orders:** $p \leq 2$ and $q \leq 3$.
 
@@ -229,7 +231,7 @@ By setting aside the seasonal spikes, the **ACF** plot shows significant correla
 
 We are now going to test all these specifications, and select the model that has the lower information criteria AIC/BIC.
 
-#### Estimation
+#### b) Estimation
 
 ```{r, echo =FALSE}
 # Recherche exhaustive (Grid Search interne)
@@ -261,7 +263,7 @@ The grid search performed on the log-transformed series $ln(X_t)$ (with $d=1$) i
 | **SMA(1)** ($\Theta_1$) | -0.5621 | 0.1010 | **-5.56** | Significant |
 | **Drift** ($\delta$) | 0.0004 | 0.0002 | **2.00** |  |
 
-#### Residual's checking (validity)
+#### c) Residual's checking (validity)
 
 ```{r}
 checkresiduals(fit_best)
