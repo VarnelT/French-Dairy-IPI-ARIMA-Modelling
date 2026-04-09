@@ -231,7 +231,7 @@ Consequently, the search space for the optimal model is defined within the $SARI
 
 We are now going to test all these specifications, and select the model that has the lower information criteria AIC/BIC.
 
-#### b) Estimation
+#### Estimation
 
 ```{r, echo =FALSE}
 # Recherche exhaustive (Grid Search interne)
@@ -281,44 +281,58 @@ head(model_comparison_sorted, 10)
 
 ```
 
-The grid search performed on the log-transformed series $ln(X_t)$ (with $d=1$) identifies the $SARIMA(0,1,2)(2,0,2)_{12}$ with drift as the optimal model based on the **BIC (-2450.45)**. We verify the significance of the estimated parameters using a $t$-test (at the 5% level, $|t| > 1.96$):
+The grid search performed on the log-transformed series $ln(X_t)$ (with $d=1$) identifies the $SARIMA(0,1,2)(2,0,2)_{12}$ with drift as the optimal model based on the **BIC (-2498)** and **AIC (-2469)**.
 
-|  |  |  |  |  |
-|---------------|---------------|---------------|---------------|---------------|
-| **Parameter** | **Estimate** | **Std. Error** | **t-statistic** | **Status** |
-| **MA(1)** ($\theta_1$) | -0.4536 | 0.0476 | **-9.53** | Significant |
-| **MA(2)** ($\theta_2$) | -0.1360 | 0.0479 | **-2.84** | Significant |
-| **SAR(1)** ($\Phi_1$) | 0.5110 | 0.1051 | **4.86** | Significant |
-| **SAR(2)** ($\Phi_2$) | -0.2390 | 0.0520 | **-4.60** | Significant |
-| **SMA(1)** ($\Theta_1$) | -0.5621 | 0.1010 | **-5.56** | Significant |
-| **Drift** ($\delta$) | 0.0004 | 0.0002 | **2.00** |  |
+```{r echo=FALSE}
+# Entraînement du meilleur modèle
+final_fit <- Arima(lxt, 
+                   order = c(0, 1, 2), 
+                   seasonal = list(order = c(2, 0, 2), period = 12),
+                   method = "ML")
 
-#### c) Residual's checking (validity)
+summary(final_fit)
 
-```{r}
-checkresiduals(fit_best)
 ```
 
-To confirm the model's adequacy, we performed a **Ljung-Box diagnostic test** on the residuals. The null hypothesis of independence cannot be rejected, as the p-value ($0.6373$) is significantly higher than the $5\%$ threshold. This result proves that the residuals behave as white noise, indicating that our $SARIMA(0,1,2)(2,0,1)_{12}$ specification effectively captures both the short-term dynamics and the seasonal patterns of the dairy production index."
+We verify the significance of the estimated parameters using a $t$-test (at the 5% level, $|t| > 1.96$):
 
-#### Model equation
+|  |  |  |  |  |
+|---------------|---------------|---------------|---------------|-------------|
+| **Parameter** | **Estimate** | **Std. Error** | **t-statistic** | **Status** |
+| **MA(1)** ($\theta_1$) | -0.4142 | 0.0479 | **-8.67** | Significant |
+| **MA(2)** ($\theta_2$) | -0.1430 | 0.0472 | **-3.03** | Significant |
+| **SAR(1)** ($\Phi_1$) | 0.8667 | 0.0368 | **23.55** | Significant |
+| **SAR(2)** ($\Phi_2$) | -0.9378 | 0.0378 | **-24.81** | Significant |
+| **SMA(1)** ($\Theta_1$) | -0.8941 | 0.0603 | **-14.83** | Significant |
+| **SMA(2)** ($\Theta_2$) | 0.8276 | 0.0668 | 12.39 | Significant |
+| **Drift** ($\delta$) | 0.0004 | 0.0002 | **2.00** |  |
 
-The optimal model identified for the log-transformed index $y_t = \ln(X_t)$ is a $SARIMA(0,1,2)(2,0,1)_{12}$ with drift. Using the backshift operator $L$, the equation for the first-differenced series $W_t = (1-L)y_t$ is specified as:
+#### Residual's checking (validity)
 
-\$\$(1 - \\Phi_1 L\^{12} - \\Phi_2 L\^{24}) (W_t - \\delta) = (1 + \\theta_1 L + \\theta_2 L\^2)(1 + \\Theta_1 L\^{12}) \\epsilon_t\$\$
+```{r}
+checkresiduals(final_fit)
+```
 
-Where $\epsilon_t \sim WN(0, \sigma^2)$ represents the white noise process. Substituting the maximum likelihood estimates from our results:
+To confirm the model's adequacy, we performed a **Ljung-Box diagnostic test** on the residuals. The null hypothesis of independence cannot be rejected, as the p-value ($0.7374$) is significantly higher than the $5\%$ threshold. This result proves that the residuals behave as white noise, indicating that our $SARIMA(0,1,2)(2,0,2)_{12}$ specification effectively captures both the short-term dynamics and the seasonal patterns of the dairy production index."
 
--   **Drift (**$\delta$): $0.0004$
+#### b) Model equation
 
--   **Non-seasonal MA (**$\theta_1, \theta_2$): $-0.4536, -0.1360$
+The optimal model identified for the log-transformed index $y_t = \ln(X_t)$ is a $SARIMA(0,1,2)(2,0,2)_{12}$. The equation for the first-differenced series $\nabla y_t = (1-L)y_t$ is:
 
--   **Seasonal AR (**$\Phi_1, \Phi_2$): $0.5110, -0.2390$
+\$\$(1 - \\Phi_1 L\^{12} - \\Phi_2 L\^{24}) \\nabla y_t = (1 + \\theta_1 L + \\theta_2 L\^2)(1 + \\Theta_1 L\^{12} + \\Theta_2 L\^{24}) \\epsilon_t\$\$
 
--   **Seasonal MA (**$\Theta_1$): $-0.5621$
+Using the Maximum Likelihood estimates:
 
--   **Estimated Variance (**$\hat{\sigma}^2$): $0.000186$
+-   **Non-seasonal MA:** $\theta_1 = -0.4142$, $\theta_2 = -0.1430$
 
-The final estimated equation is:
+-   **Seasonal AR:** $\Phi_1 = 0.8667$, $\Phi_2 = -0.9378$
 
-\$\$(1 - 0.5110 L\^{12} + 0.2390 L\^{24}) (\\nabla \\ln(X_t) - 0.0004) = (1 - 0.4536 L - 0.1360 L\^2)(1 - 0.5621 L\^{12}) \\epsilon_t\$\$
+-   **Seasonal MA:** $\Theta_1 = -0.8941$, $\Theta_2 = 0.8276$
+
+-   **White Noise:** $\epsilon_t \sim WN(0, 0.000175)$
+
+**Final estimated equation:**
+
+\$\$(1 - 0.8667 L\^{12} + 0.9378 L\^{24}) \\nabla \\ln(X_t) = (1 - 0.4142 L - 0.1430 L\^2)(1 - 0.8941 L\^{12} + 0.8276 L\^{24}) \\epsilon_t\$\$
+
+All coefficients are statistically significant ($|t| > 1.96$), and the near-zero **ACF1 (-0.0004)** confirms that the residuals are effectively white noise.
