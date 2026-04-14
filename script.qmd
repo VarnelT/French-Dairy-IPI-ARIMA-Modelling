@@ -102,7 +102,6 @@ plot(lxt-trend,
      xlab = "Temps",
      col = "blue",
      lwd = 1)
-
 ```
 
 Visual inspection of the series reveals a sustained upward trend over the 1990-2026 period, suggesting the presence of a stochastic trend. Furthermore, the fluctuations in the detrended series (shown on the right) exhibit time-varying volatility, indicating that the variance is not constant over time. These observations strongly suggest that the process is non-stationary. To rigorously confirm this assessment, we perform a comprehensive suite of statistical tests, including the Augmented Dickey-Fuller (ADF) and Phillips-Perron (PP) unit root tests, as well as the KPSS stationarity test.
@@ -185,7 +184,7 @@ To rigorously justify the transformation of the series, we performed a comprehen
 ### c) Transform and visualize the new serie
 
 ```{r, echo=FALSE}
-# Création de la série différenciée (Le "W_t" de ton cours)
+# Création de la série différenciée 
 dlxt <- diff(lxt)
 
 # Graphique comparatif (Question 3)
@@ -212,127 +211,88 @@ The visual inspection of the first-differenced series $W_t = \nabla \ln(X_t)$ co
 
 ```{r, echo=FALSE}
 # Visualisation des corrélogrammes
+library(ggplot2)
+library(ggcorrplot)
 par(mfrow = c(1, 2))
-acf(dlxt, main = "ACF", lag.max = 84)
-pacf(dlxt, main = "PACF", lag.max = 84)
+ggAcf(dlxt, lag.max = 80, plot = T)
+ggPacf(dlxt, lag.max = 80, plot = T)
 ```
 
-The examination of the ACF and PACF plots for the first-differenced series $\nabla ln(X_t)$ reveals significant and persistent spikes at seasonal lags ($k=12, 24, 36$). These patterns indicate that the simple non-seasonal differentiation $(1-L)$ was insufficient to fully characterize the series' dynamics, as a clear **seasonal component** remains. This observation justifies the inclusion of seasonal autoregressive ($SAR$) and/or moving average ($SMA$) terms in the model to account for these annual dependencies and ensure that the final residuals satisfy the white noise property.
+The identification of the optimal orders $p$ and $q$ is derived from the autocorrelation functions of the first-differenced series $\nabla \ln(X_t)$. The ACF plot reveals a single significant negative spike at the first lag ($k=1$), followed by an immediate truncation where subsequent correlations fall within the confidence intervals. This pattern is a classic signature of a first-order moving average process, justifying a maximum order of $q_{max} = 1$.
 
-By setting aside the seasonal spikes, the **ACF** plot shows significant correlations that effectively cut off after lag 2. Similarly, the **PACF** exhibits a truncation after lag 3. On the other hand, we notice for the seasonal component that after lag 3 (on PACF), nothing is significant; whereas in the acf we observe a decay. That suggests the seasonal part behaves like an ARMA(P,D,Q).
+Simultaneously, the **PACF plot** displays significant coefficients for the first three lags before dropping sharply at lag 4. This truncation suggests that the internal memory of the series is effectively characterized by an autoregressive structure of order 3, setting the search limit at $p_{max} = 3$.
 
-Consequently, the search space for the optimal model is defined within the $SARIMA(p,1,q)(P,D,Q)_{12}$ family, with the following constraints:
+As a result, the model selection via grid search is restricted to the $ARIMA(p,1,q)$ family with the following constraints:
 
--   **Regular orders:** $p \leq 2$ and $q \leq 3$.
+-   **Autoregressive order (**$p$): $p \leq 3$
 
--   **Seasonal orders:** $P \leq 2$ and $Q \leq 3$.
-
--   **Seasonal integration:** $D \leq 1$.
+-   **Moving average order (**$q$): $q \leq 1$
 
 We are now going to test all these specifications, and select the model that has the lower information criteria AIC/BIC.
 
 #### Estimation
 
 ```{r, echo =FALSE}
-# Recherche exhaustive (Grid Search interne)
-# Définition des plages de paramètres
-p_range <- 0:2
-q_range <- 0:3
-P_range <- 0:2
-Q_range <- 0:2
-D_range <- 0:1
-d <- 1  
-# Initialisation du tableau de résultats
-model_comparison <- data.frame()
 
-# 2. Boucle 
-for (p in p_range) {
-  for (q in q_range) {
-    for (P in P_range) {
-      for (Q in Q_range) {
-        for (D in D_range) {
-          
-          # Estimation du modèle 
-          fit <- try(Arima(lxt, 
-                           order = c(p, d, q), 
-                           seasonal = list(order = c(P, D, Q), period = 12),
-                           method = "CSS-ML"), # Méthode plus rapide pour le grid search
-                     silent = TRUE)
-          
-          # Si le modèle a convergé, on stocke les critères
-          if (!inherits(fit, "try-error")) {
-            row <- data.frame(p = p, d = d, q = q, P = P, D = D, Q = Q,
-                              AIC = fit$aic, 
-                              BIC = fit$bic,
-                              LogLik = fit$loglik)
-            model_comparison <- rbind(model_comparison, row)
-          }
-        }
-      }
-    }
-  }
+# Fonction qui qppliaue le test de Ljung Box aux résidus
+Qtests <- function(series, k, fitdf=0) {
+  pvals <- apply(matrix(1:k), 1, FUN=function(l) {
+    pval <- if (l<=fitdf) NA else Box.test(series, lag=l, type="Ljung-Box", fitdf=fitdf)$p.value
+    return(c("lag"=l,"pval"=pval))
+  })
+  return(t(pvals))
 }
 
-# 3. Tri et affichage des meilleurs modèles
-model_comparison_sorted <- model_comparison[order(model_comparison$BIC), ]
+# fonction de test des significations individuelles des coefficients
+signif <- function(estim){
+  coef <- estim$coef
+  se <- sqrt(diag(estim$var.coef))
+  t <- coef/se
+  pval <- (1-pnorm(abs(t)))*2
+  return(rbind(coef,se,pval))
+}
 
-# Affichage du Top 10
-head(model_comparison_sorted, 10)
 
 ```
 
-The grid search performed on the log-transformed series $ln(X_t)$ (with $d=1$) identifies the $SARIMA(0,1,2)(2,0,2)_{12}$ with drift as the optimal model based on the **BIC (-2498)** and **AIC (-2469)**.
+```{r, echo = FALSE}
+# Entrainement des modèles candidats
+model1= arima(dlxt,c(0,0,1), method = "ML")
+model2=arima(dlxt,c(1,0,0), method = "ML")
+model3=arima(dlxt,c(1,0,1), method = "ML")
+model4=arima(dlxt,c(2,0,0), method = "ML")
+model5=arima(dlxt,c(2,0,1), method = "ML")
+model6=arima(dlxt,c(3,0,0), method = "ML")
+model7=arima(dlxt,c(3,0,1), method = "ML")
+```
+
+```{r, echo=FALSE}
+signif(model1)
+signif(model2)
+signif(model3)
+signif(model4)
+signif(model5)
+signif(model6)
+signif(model7)
+```
+
+Among all candidates, only ARMA(2,1) and ARMA(3,1) have coefficients that are non significant !
+
+```{r, echo=FALSE}
+Qtests(model1$residuals,24,1)
+Qtests(model2$residuals,24,1)
+Qtests(model3$residuals,24,2)
+Qtests(model4$residuals,24,2)
+Qtests(model6$residuals,24,3)
+```
+
+Only ARMA(1,1) passed the Ljung Box Test.
 
 ```{r echo=FALSE}
-# Entraînement du meilleur modèle
-final_fit <- Arima(lxt, 
-                   order = c(0, 1, 2), 
-                   seasonal = list(order = c(2, 0, 2), period = 12),
-                   method = "ML")
-
-summary(final_fit)
-
+aic <- AIC(model1, model2, model3, model4, model5, model6, model7)
+bic <- BIC(model1, model2, model3, model4, model5, model6, model7)
+which.min(bic$BIC)
+which.min(aic$AIC)
 ```
 
-We verify the significance of the estimated parameters using a $t$-test (at the 5% level, $|t| > 1.96$):
-
-|  |  |  |  |  |
-|---------------|---------------|---------------|---------------|-------------|
-| **Parameter** | **Estimate** | **Std. Error** | **t-statistic** | **Status** |
-| **MA(1)** ($\theta_1$) | -0.4142 | 0.0479 | **-8.67** | Significant |
-| **MA(2)** ($\theta_2$) | -0.1430 | 0.0472 | **-3.03** | Significant |
-| **SAR(1)** ($\Phi_1$) | 0.8667 | 0.0368 | **23.55** | Significant |
-| **SAR(2)** ($\Phi_2$) | -0.9378 | 0.0378 | **-24.81** | Significant |
-| **SMA(1)** ($\Theta_1$) | -0.8941 | 0.0603 | **-14.83** | Significant |
-| **SMA(2)** ($\Theta_2$) | 0.8276 | 0.0668 | 12.39 | Significant |
-| **Drift** ($\delta$) | 0.0004 | 0.0002 | **2.00** |  |
-
-#### Residual's checking (validity)
-
-```{r}
-checkresiduals(final_fit)
-```
-
-To confirm the model's adequacy, we performed a **Ljung-Box diagnostic test** on the residuals. The null hypothesis of independence cannot be rejected, as the p-value ($0.7374$) is significantly higher than the $5\%$ threshold. This result proves that the residuals behave as white noise, indicating that our $SARIMA(0,1,2)(2,0,2)_{12}$ specification effectively captures both the short-term dynamics and the seasonal patterns of the dairy production index."
-
-#### b) Model equation
-
-The optimal model identified for the log-transformed index $y_t = \ln(X_t)$ is a $SARIMA(0,1,2)(2,0,2)_{12}$. The equation for the first-differenced series $\nabla y_t = (1-L)y_t$ is:
-
-\$\$(1 - \\Phi_1 L\^{12} - \\Phi_2 L\^{24}) \\nabla y_t = (1 + \\theta_1 L + \\theta_2 L\^2)(1 + \\Theta_1 L\^{12} + \\Theta_2 L\^{24}) \\epsilon_t\$\$
-
-Using the Maximum Likelihood estimates:
-
--   **Non-seasonal MA:** $\theta_1 = -0.4142$, $\theta_2 = -0.1430$
-
--   **Seasonal AR:** $\Phi_1 = 0.8667$, $\Phi_2 = -0.9378$
-
--   **Seasonal MA:** $\Theta_1 = -0.8941$, $\Theta_2 = 0.8276$
-
--   **White Noise:** $\epsilon_t \sim WN(0, 0.000175)$
-
-**Final estimated equation:**
-
-\$\$(1 - 0.8667 L\^{12} + 0.9378 L\^{24}) \\nabla \\ln(X_t) = (1 - 0.4142 L - 0.1430 L\^2)(1 - 0.8941 L\^{12} + 0.8276 L\^{24}) \\epsilon_t\$\$
-
-All coefficients are statistically significant ($|t| > 1.96$), and the near-zero **ACF1 (-0.0004)** confirms that the residuals are effectively white noise.
+Finally, the best model is ARIMA(1,0,1). The equation is: \$\$\\ln(X_t) = 1,2651 \\ln(X\_{t-1}) - 0,2651 \\ln(X\_{t-2}) + 0,0004 + \\epsilon_t - 0,7237 \\epsilon\_{t-1}\$\$
