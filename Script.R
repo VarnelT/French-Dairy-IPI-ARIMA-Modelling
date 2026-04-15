@@ -23,8 +23,6 @@ library(tsoutliers)
 library(expsmooth)
 
 # Chargement et nettoyage de la base 
-
-library(readr)
 valeurs_mensuelles <- read_delim("valeurs_mensuelles.csv", 
                                  delim = ";", escape_double = FALSE, trim_ws = TRUE)
 base <- valeurs_mensuelles[-c(1:3),c(1:2)]
@@ -81,3 +79,7 @@ plot(lxt-trend,
      xlab = "Temps",
      col = "blue",
      lwd = 1)
+
+## Les Boxplots mensuels permettent aussi de v?rifier la saisonnalit?
+boxplot(lxt~cycle(lxt),col="lightblue",pch=20,cex=0.5, main = "Boxplots mensuels", ylab = "Indice de production de boissons alcooliques", xlab = "Mois")
+
