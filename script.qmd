@@ -102,6 +102,15 @@ plot(lxt-trend,
      xlab = "Temps",
      col = "blue",
      lwd = 1)
+#mvt de fond de Xt-trend
+tr <- ma(lxt-trend, order = 12, centre = TRUE)
+lines(tr, col = "firebrick", lwd = 1)
+
+legend("bottomright", 
+       legend = c("Log(Xt)-trend", "Tendance"),
+       col = c("gray", "firebrick"), 
+       lty = 1, 
+       lwd = c(1, 1))
 ```
 
 Visual inspection of the series reveals a sustained upward trend over the 1990-2026 period, suggesting the presence of a stochastic trend. Furthermore, the fluctuations in the detrended series (shown on the right) exhibit time-varying volatility, indicating that the variance is not constant over time. These observations strongly suggest that the process is non-stationary. To rigorously confirm this assessment, we perform a comprehensive suite of statistical tests, including the Augmented Dickey-Fuller (ADF) and Phillips-Perron (PP) unit root tests, as well as the KPSS stationarity test.
@@ -171,7 +180,7 @@ To rigorously justify the transformation of the series, we performed a comprehen
 ##### Table 1: Unit Root and Stationarity Tests Results for $ln(X_t)$
 
 |  |  |  |  |  |  |
-|----|----|----|----|----|----|
+|------------|------------|------------|------------|------------|------------|
 | **Test** | **Specification** | **Null Hypothesis (H0​)** | **Statistic** | **Critical Value (5%)** | **Result** |
 | **ADF** | Trend, Intercept | Unit Root | $\tau_3 = -2.48$ | $-3.42$ | Fail to reject $H_0$ |
 |  |  | Joint Test ($\gamma=0, \beta=0$) | $\phi_3 = 3.56$ | $6.30$ | Fail to reject $H_0$ |
@@ -188,7 +197,7 @@ To rigorously justify the transformation of the series, we performed a comprehen
 dlxt <- diff(lxt)
 
 # Graphique comparatif (Question 3)
-par(mfrow = c(1, 2)) # Pour afficher les deux l'un au-dessus de l'autre
+par(mfrow = c(1, 2)) 
 plot(lxt, main = "Before", col = "blue", ylab = "Log-Index")
 plot(dlxt, main = "After: First Difference", col = "gray", ylab = "Growth Rate")
 abline(h = 0, lty = 2) # Ajoute une ligne à zéro pour voir la stationnarité en moyenne
