@@ -7,7 +7,7 @@
 rm(list=ls(all=TRUE))
 
 #Chargement des packages 
-install.packages("patchwork")
+install.packages("strucchange")
 library(urca)
 library(lmtest)
 library(readr)
@@ -15,6 +15,8 @@ library(zoo)
 library(tseries)
 library(forecast)
 library(ellipse)
+library(strucchange)
+library(changepoint)
 library(ggplot2)
 library(ggcorrplot)
 library(patchwork)
@@ -58,11 +60,12 @@ plot(lxt,
      ylab = "Log-Indice", 
      xlab = "period",
      col = "gray",
-     lwd = 2)
+     lwd = 2,
+     ylim = c(3.5, 5.4))
 
 lines(trend, col = "firebrick", lwd = 1) 
 
-legend("bottomright", 
+legend("bottomleft", 
        legend = c("Log(Xt)", "Trend"),
        col = c("gray", "firebrick"), 
        lty = 1, 
@@ -73,15 +76,16 @@ plot(lxt-trend,
      ylab = "log(Xt)-Trend", 
      xlab = "t",
      col = "gray",
-     lwd = 1)
+     lwd = 1,
+     ylim = c(-0.3, 0.3))
 
 #mvt de fond de Xt-trend
 tr <- ma(lxt-trend, order = 12, centre = TRUE)
 lines(tr, col = "firebrick", lwd = 1)
 
-legend("bottomright", 
-       legend = c("Log(Xt)-trend", "Trend"),
-       col = c("gray", "firebrick"), 
+legend("bottomleft", 
+       legend = c("Log(Xt)-trend"),
+       col = c("gray"), 
        lty = 1, 
        lwd = c(1, 1))
 
@@ -96,6 +100,16 @@ monthplot(lxt, xlab = "Month")
 # ========================================================================= #
 # ============================= Question 2 ================================ #
 # ========================================================================= #
+
+
+#---------------------test de changement structurel----------------------------------------------------
+n=length(lxt)
+t=time(1:n)
+cumsum=efp(lxt~t,type="OLS-CUSUM")
+plot(cumsum,xlab="year", main="CUSUM test IPI index",col="blue")
+
+sctest(cumsum) # TEST DE CUSUM
+#-------------------------------------------------------------------
 
             #--- 1. TEST AUGMENTED DICKEY-FULLER (ADF) ---
 adf_trend <- ur.df(lxt, type = "trend", lags = 12, selectlags = "BIC")
@@ -112,9 +126,18 @@ pp_test <- ur.pp(lxt, type = "Z-tau", model = "constant", lags = "short")
 summary(pp_test)
 
           #--- 3. KPSS TEST ---
-kpss_test <- ur.kpss(lxt, type="mu", lags="short", use.lag = 12)
+kpss_test <- ur.kpss(lxt, type="tau", lags="short", use.lag = 24)
 summary(kpss_test)
 
+          #--- 3. Zivot and Andrews Test (Because there are breakpoints) ---
+xt_intercept <- ur.za(lxt, model = "intercept")
+summary(xt_intercept)
+
+xt_trend <- ur.za(lxt, model = "trend")
+summary(xt_trend)
+
+xt_both <- ur.za(lxt, model = "both")
+summary(xt_both)
 
 # ========================================================================= #
 # ============================= Question 3 ================================ #
@@ -123,13 +146,13 @@ summary(kpss_test)
 dlxt <- diff(lxt)
 
 par(mfrow = c(1, 2)) 
-plot(lxt, col = "blue", ylab = "Log-Index", main="Before")
-plot(dlxt, col = "gray", main="After")
+plot(lxt, col = "blue", ylab = "Log-Index", main="Before", ylim = c(3.5, 5.4))
+plot(dlxt, col = "gray", main="After", ylim = c(-0.3, 0.3))
 abline(h = 0, lty = 2)
 
 lines(ma(dlxt, order = 12, centre = TRUE), col = "firebrick", lwd = 1) 
 
-legend("bottomright", 
+legend("bottomleft", 
        legend = c("diff.log(Xt)", "trend"),
        col = c("gray", "firebrick"), 
        lty = 1, 
@@ -150,8 +173,8 @@ legend("bottomright",
 
 # ACF and PACF
 par(mfrow = c(1, 2))
-aacf <- ggAcf(dlxt, lag.max = 30, plot = T)
-ppacf <- ggPacf(dlxt, lag.max = 30, plot = T)
+aacf <- ggAcf(dlxt, lag.max = 50, plot = T)
+ppacf <- ggPacf(dlxt, lag.max = 50, plot = T)
 cb <- aacf + ppacf
 cb
 
@@ -180,7 +203,11 @@ model4=arima(dlxt,c(2,0,0), method = "ML")
 model5=arima(dlxt,c(2,0,1), method = "ML")
 model6=arima(dlxt,c(3,0,0), method = "ML")
 model7=arima(dlxt,c(3,0,1), method = "ML")
-
+model8=arima(dlxt,c(3,0,1), method = "ML")
+model9=arima(dlxt,c(3,0,1), method = "ML")
+model10=arima(dlxt,c(3,0,1), method = "ML")
+model11=arima(dlxt,c(3,0,1), method = "ML")
+model12=arima(dlxt,c(3,0,1), method = "ML")
 #-----Coefficents checking--------------------------
 signif(model1)
 signif(model2)
