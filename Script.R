@@ -196,18 +196,17 @@ signif <- function(estim){
   return(rbind(coef,se,pval))
 }
   #----------------Model training----------------
-model1= arima(dlxt,c(0,0,1), method = "ML")
-model2=arima(dlxt,c(1,0,0), method = "ML")
-model3=arima(dlxt,c(1,0,1), method = "ML")
-model4=arima(dlxt,c(2,0,0), method = "ML")
-model5=arima(dlxt,c(2,0,1), method = "ML")
-model6=arima(dlxt,c(3,0,0), method = "ML")
+model1= arima(dlxt,c(1,0,0), method = "ML")
+model2=arima(dlxt,c(2,0,0), method = "ML")
+model3=arima(dlxt,c(3,0,0), method = "ML")
+model4=arima(dlxt,c(0,0,1), method = "ML")
+model5=arima(dlxt,c(1,0,1), method = "ML")
+model6=arima(dlxt,c(2,0,1), method = "ML")
 model7=arima(dlxt,c(3,0,1), method = "ML")
-model8=arima(dlxt,c(3,0,1), method = "ML")
-model9=arima(dlxt,c(3,0,1), method = "ML")
-model10=arima(dlxt,c(3,0,1), method = "ML")
-model11=arima(dlxt,c(3,0,1), method = "ML")
-model12=arima(dlxt,c(3,0,1), method = "ML")
+model8=arima(dlxt,c(0,0,2), method = "ML")
+model9=arima(dlxt,c(1,0,2), method = "ML")
+model10=arima(dlxt,c(2,0,2), method = "ML")
+model11=arima(dlxt,c(3,0,2), method = "ML")
 #-----Coefficents checking--------------------------
 signif(model1)
 signif(model2)
@@ -216,19 +215,24 @@ signif(model4)
 signif(model5)
 signif(model6)
 signif(model7)
+signif(model8)
+signif(model9)
+signif(model10)
+signif(model11)
 
 #---------Residuals analysis------------------------
 Qtests(model1$residuals,24,1)
-Qtests(model2$residuals,24,1)
-Qtests(model3$residuals,24,2)
-Qtests(model4$residuals,24,2)
-Qtests(model6$residuals,24,3)
-
+Qtests(model2$residuals,24,2)
+Qtests(model3$residuals,24,3)
+Qtests(model4$residuals,24,1)
+Qtests(model5$residuals,24,2)
+Qtests(model8$residuals,24,2)
 #--------Information criteria-----------------------
 aic <- AIC(model1, model2, model3, model4, model5, model6, model7)
 bic <- BIC(model1, model2, model3, model4, model5, model6, model7)
 which.min(bic$BIC)
 which.min(aic$AIC)
 
+   #---Analyse des résidus------
 checkresiduals(model3,lag = 12)
 
